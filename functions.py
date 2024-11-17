@@ -2,9 +2,9 @@ import os, time, requests, fitz
 import streamlit as st
 from langdetect import detect
 
-HA_URL = 'http://192.168.10.100:8123'
-HA_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5MzU5ZjMzMmY3Zjc0NDlhYjE2ZjJjOWYzYzM4MjQyOCIsImlhdCI6MTczMDAzODQ0NCwiZXhwIjoyMDQ1Mzk4NDQ0fQ.JvKGJE-WIziiOrJsKGSE4SmLSt6YTd1cNv26eQlVKhA'
-ENTITY_ID = 'switch.prise_pc211_thomas_pc'
+HA_URL = ''
+HA_TOKEN = ''
+ENTITY_ID = ''
 
 def turn_on_api():
     url = f"{HA_URL}/api/services/switch/turn_on"
