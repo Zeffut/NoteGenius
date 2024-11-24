@@ -11,6 +11,9 @@ if 'analyzing' not in st.session_state:
 if 'results' not in st.session_state:
     st.session_state.results = ""
 
+if 'dialog_shown' not in st.session_state:
+    st.session_state.dialog_shown = False
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
@@ -48,7 +51,7 @@ if st.session_state.analyzing:
     st.session_state.analyzing = False
     st.rerun()
 
-if st.session_state.results:
+if st.session_state.results and not st.session_state.dialog_shown:
     @st.dialog("Analysis Results")
     def show_results():
         st.markdown(st.session_state.results, unsafe_allow_html=False)

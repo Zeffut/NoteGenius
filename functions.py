@@ -33,7 +33,7 @@ def turn_on_api():
         print(f"Erreur lors de l'allumage de la prise : {e}")
 
 def is_api_available():
-    url = 'http://humble-mantis-evident.ngrok-free.app/status'
+    url = 'http://192.168.60.11/status'
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
