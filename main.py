@@ -21,6 +21,8 @@ if uploaded_files:
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
+placeholder = st.empty()  # Définir le placeholder globalement
+
 analyze_button = st.button("Analyze Documents", disabled=st.session_state.analyzing)
 
 if analyze_button and not st.session_state.analyzing:
@@ -28,6 +30,9 @@ if analyze_button and not st.session_state.analyzing:
     st.rerun()
 
 if st.session_state.analyzing:
+    with placeholder.container():
+        st.write("Analyzing documents, please wait...")
+
     if not is_api_available():
         turn_on_api()
 
@@ -44,4 +49,8 @@ if st.session_state.analyzing:
     st.rerun()
 
 if st.session_state.results:
-    st.markdown(st.session_state.results, unsafe_allow_html=False)
+    @st.dialog("Analysis Results")
+    def show_results():
+        st.markdown(st.session_state.results, unsafe_allow_html=False)
+    
+    show_results()
