@@ -44,4 +44,4 @@ if st.session_state.analyzing:
     st.rerun()
 
 if st.session_state.results:
-    st.text_area("Results", st.session_state.results, height=300)
+    st.markdown(st.session_state.results, unsafe_allow_html=False)
