@@ -1,0 +1,9 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Werkzeug
+langid
+langdetect
+apscheduler
+PyMuPDF
+g4f[all]

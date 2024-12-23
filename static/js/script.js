@@ -33,7 +33,7 @@ document.getElementById("analyse-button").addEventListener("click", async () => 
 
     const intervalId = setInterval(async () => {
         await updateProgressBar();
-    }, 1000);
+    }, 5000);
 
     try {
         // Vérifier si des fichiers sont présents avant de lancer l'analyse
@@ -242,7 +242,6 @@ async function updateProgressBar() {
         if (data.progress !== undefined) {
             progressBar.style.width = `${data.progress}%`;
             progressText.textContent = `${data.progress}%`;
-            console.log(data.progress);
         }
     } catch (error) {
         console.error('Erreur:', error);
