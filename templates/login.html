@@ -1,0 +1,18 @@
+{% block content %}
+<head>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <title>NoteGenius | Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<section class="login-container">
+    <div class="login-box">
+        <h1>Connexion</h1>
+        <form method="POST">
+            <input type="text" placeholder="Nom d'utilisateur" name="username" required>
+            <input type="password" placeholder="Mot de passe" name="password" required>
+            <button type="submit">Se connecter</button>
+        </form>
+        <a href="{{ url_for('register') }}">Créer un compte</a>
+    </div>
+</section>
+{% endblock %}

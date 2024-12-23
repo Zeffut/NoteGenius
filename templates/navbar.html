@@ -1,0 +1,21 @@
+<section class="navbar">
+    <header>
+        <a class="title">📝 NoteGenius</a>
+        <div class="button">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('logout') }}">
+                    <button class="logout">
+                        <i class="fa fa-sign-out" aria-hidden="true"></i>
+                    </button>
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}">
+                    <button class="login">Login</button>
+                </a>
+                <a href="{{ url_for('register') }}">
+                    <button class="register">Register</button>
+                </a>
+            {% endif %}
+        </div>
+    </header>    
+</section>

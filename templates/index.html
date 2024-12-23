@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <title>NoteGenius</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="notification" class="notification success">
+        <span id="notification-text">Opération réussie !</span>
+    </div>
+    {% include 'navbar.html' %}
+    <section class="files">
+        <div class="drop-area" id="drop-area" onclick="document.getElementById('file-input').click()">
+            <span>Drag & Drop files here or click to select files</span>
+            <input type="file" id="file-input" multiple>
+        </div>
+        <div id="file-list-container" class="file_list">
+            <h2>Fichiers :</h2>
+            <div id="file-list">
+                <!-- Les fichiers sont chargés ici -->
+            </div>
+        </div>
+    </section>
+    <section class="analyse">
+        <button class="analyse" id="analyse-button">Analyser</button>
+    </section>
+    <section class="results-section" id="results-section">
+        <div id="popup" class="popup">
+            <div id="progress" class="progress">
+                Progression
+                 <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar">
+                        <span class="progress-text" id="progressText">0%</span>
+                    </div>
+                </div>                
+            </div>
+            <div id="results" class="results">
+                <div id="card" class="card"></div>
+            </div>
+        </div>
+    </section>
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</body>
+</html>
