@@ -123,6 +123,8 @@ def call_chat_api(message):
 # Route pour la page d'accueil
 @app.route("/")
 def home():
+    session['isAnalysing'] = False
+
     # Vérifier si l'utilisateur est authentifié ou si c'est un utilisateur invité
     if current_user.is_authenticated or 'user_token' in session:
         update_user_info()
@@ -215,7 +217,7 @@ def analyse_files():
         return jsonify({'error': 'No PDF files found'}), 400
 
     session['isAnalysing'] = True
-    session.modified = True  # Marquer la session comme modifiée
+    session.modified = True
     total_pages = sum([fitz.open(os.path.join(user_folder, f)).page_count for f in pdf_files])
     processed_pages = 0
 
@@ -343,4 +345,4 @@ scheduler.add_job(clean_inactive_user_files, 'interval', hours=24)
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=8080)
