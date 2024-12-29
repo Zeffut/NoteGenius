@@ -1,4 +1,5 @@
 let isAnalysing = false;
+let progress = 0;
 
 const DOM = {
     analyseButton: document.getElementById("analyse-button"),
@@ -12,7 +13,7 @@ const DOM = {
 };
 
 document.getElementById("analyse-button").addEventListener("click", async () => {
-    const analyseButton = document.getElementById("analyse-button");
+    const analyseButton = DOM.analyseButton;
     const resultSection = document.getElementById('results-section');
     const progressDiv = document.getElementById('progress');
     const resultsDiv = document.getElementById('results');
@@ -21,13 +22,11 @@ document.getElementById("analyse-button").addEventListener("click", async () => 
     resultsDiv.style.display = 'none';
     progress = 0;
 
-    // Empêcher le lancement de plusieurs analyses en même temps
     if (isAnalysing) {
         return;
     }
     isAnalysing = true;
 
-    // Désactiver le bouton dès le clic
     analyseButton.disabled = true;
     analyseButton.textContent = "Analyse en cours...";
 
@@ -36,7 +35,6 @@ document.getElementById("analyse-button").addEventListener("click", async () => 
     }, 5000);
 
     try {
-        // Vérifier si des fichiers sont présents avant de lancer l'analyse
         const response = await fetch('/files/list');
         const files = await response.json();
 
@@ -49,61 +47,59 @@ document.getElementById("analyse-button").addEventListener("click", async () => 
             return;
         }
 
-        // Effectuer l'appel à l'API Flask
         const analyseResponse = await fetch('/analyse', {
             method: 'POST',
         });
 
-        if (analyseResponse.ok) {
-            // Attendre les résultats de l'analyse
-            const resultResponse = await fetch('/results');
-            const result = await resultResponse.json();
-            displayResult(result.revision_cards);
-
-            // Arrêter l'intervalle une fois les résultats reçus
-            clearInterval(intervalId);
-            analyseButton.disabled = false;
-            analyseButton.textContent = "Analyser";
-            isAnalysing = false;
-        } else {
+        if (!analyseResponse.ok) {
             const result = await analyseResponse.json();
-            showNotification("error", result.error);
-            analyseButton.disabled = false;
-            analyseButton.textContent = "Analyser";
-            resultSection.style.display = 'none';
-            isAnalysing = false;
-
+            throw new Error(result.error || 'Erreur lors de l\'analyse');
         }
+
+        const checkStatusInterval = setInterval(async () => {
+            const statusResponse = await fetch('/status');
+            const statusResult = await statusResponse.json();
+
+            if (statusResult.status === 'completed') {
+                clearInterval(checkStatusInterval);
+
+                const resultResponse = await fetch('/results');
+                if (!resultResponse.ok) {
+                    throw new Error('Erreur lors de la récupération des résultats');
+                }
+
+                const result = await resultResponse.json();
+                displayResult(result);
+
+                clearInterval(intervalId);
+                analyseButton.disabled = false;
+                analyseButton.textContent = "Analyser";
+                isAnalysing = false;
+                progressDiv.style.display = 'none'; // Masquer la section de progression
+            }
+        }, 5000);
+
     } catch (error) {
         console.error("Erreur pendant l'analyse :", error);
-        showNotification("error", "Une erreur est survenue pendant l'analyse.");
+        showNotification("error", error.message);
         analyseButton.disabled = false;
         analyseButton.textContent = "Analyser";
         resultSection.style.display = 'none';
         isAnalysing = false;
-    } finally {
-        // Réactiver le bouton une fois l'analyse terminée
-        analyseButton.disabled = false;
-        analyseButton.textContent = "Analyser";
-        progressDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
-        isAnalysing = false;
     }
 });
 
-// Fonction pour afficher les cartes de révision
 function displayRevisionCards(cardsText) {
     const resultsElement = DOM.results;
-    resultsElement.innerHTML = ""; // Clear previous results
+    resultsElement.innerHTML = "";
 
-    const converter = new showdown.Converter(); // Utiliser Showdown pour convertir le Markdown en HTML
+    const converter = new showdown.Converter();
     const cards = cardsText.split('---').map(card => card.trim());
     cards.forEach(card => {
         const cardElement = document.createElement("div");
         cardElement.classList.add("card");
-        cardElement.innerHTML = converter.makeHtml(card); // Utiliser Showdown pour convertir le Markdown en HTML
+        cardElement.innerHTML = converter.makeHtml(card);
 
-        // Ajouter un bouton "Copier"
         const copyButton = document.createElement("button");
         const copyIcon = document.createElement("i");
         copyIcon.classList.add("fa", "fa-copy");
@@ -115,13 +111,12 @@ function displayRevisionCards(cardsText) {
         resultsElement.appendChild(cardElement);
     });
 
-    // Re-render MathJax for mathematical formulas
     if (window.MathJax) {
         MathJax.typesetPromise().then(() => {
-            resultsElement.style.display = "block"; // Afficher le conteneur des résultats une fois les cartes prêtes
+            resultsElement.style.display = "block";
         });
     } else {
-        resultsElement.style.display = "block"; // Afficher le conteneur des résultats une fois les cartes prêtes
+        resultsElement.style.display = "block";
     }
 }
 
@@ -141,7 +136,6 @@ async function loadFileList() {
                 listItem.textContent = file;
                 listItem.classList.add('file');
 
-                // Ajouter un bouton de suppression
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Supprimer';
                 deleteButton.classList.add('delete-btn');
@@ -155,8 +149,7 @@ async function loadFileList() {
         }
     } catch (error) {
         console.error(error);
-        const fileListContainer = document.getElementById("file-list");
-        fileListContainer.textContent = "Erreur lors du chargement des fichiers.";
+        showNotification('error', 'Erreur lors du chargement des fichiers.');
     }
 }
 
@@ -166,49 +159,47 @@ function displayResult(result) {
         console.error("Element 'results' non trouvé.");
         return;
     }
-    resultsElement.innerHTML = ""; // Clear previous results
+    resultsElement.innerHTML = "";
 
-    const converter = new showdown.Converter(); // Utiliser Showdown pour convertir le Markdown en HTML
+    // Vérification de la présence et de la validité de 'revision_cards'
+    if (!result || !result.revision_cards || typeof result.revision_cards !== 'string') {
+        console.error("Aucune carte de révision valide dans la réponse.");
+        return;
+    }
 
-    // Créer une seule carte
+    const converter = new showdown.Converter();
+    const resultContent = result.revision_cards;
+
     const cardElement = document.createElement("div");
     cardElement.classList.add("card");
+    cardElement.innerHTML = converter.makeHtml(resultContent);
 
-    // Convertir le Markdown entier et l'ajouter à la carte
-    cardElement.innerHTML = converter.makeHtml(result); // Convertir le Markdown en HTML
-
-    // Ajouter la carte au conteneur des résultats
     resultsElement.appendChild(cardElement);
 
-    // Créer un conteneur pour les boutons
     const buttonContainer = document.createElement("div");
     buttonContainer.style.display = "flex";
     buttonContainer.style.justifyContent = "center";
-    buttonContainer.style.gap = "10px"; // Espace entre les boutons
+    buttonContainer.style.gap = "10px";
 
-    // Créer et ajouter le bouton "Copier"
     const copyBtn = document.createElement("button");
     copyBtn.id = "copy-btn";
     copyBtn.classList.add("copy-btn");
     copyBtn.innerHTML = 'Copier <i class="fa fa-copy"></i>';
-    copyBtn.addEventListener("click", () => copyToClipboard(result, copyBtn));
+    copyBtn.addEventListener("click", () => copyToClipboard(resultContent, copyBtn));
     buttonContainer.appendChild(copyBtn);
 
-    // Créer et ajouter le bouton "Fermer"
     const closeBtn = document.createElement("button");
     closeBtn.id = "close-btn";
-    closeBtn.classList.add("close-btn"); // Utiliser la même classe que le bouton "Copier"
+    closeBtn.classList.add("close-btn");
     closeBtn.setAttribute("aria-label", "Close");
     closeBtn.innerHTML = 'Fermer <span aria-hidden="true">&times;</span>';
     closeBtn.addEventListener("click", closePopup);
     buttonContainer.appendChild(closeBtn);
 
-    // Ajouter le conteneur des boutons aux résultats
     resultsElement.appendChild(buttonContainer);
 
     resultsElement.style.display = "block";
 
-    // Actualiser la liste des fichiers après la réception des résultats
     loadFileList();
 }
 
@@ -232,7 +223,7 @@ function copyToClipboard(text, button) {
 
 async function updateProgressBar() {
     try {
-        const response = await fetch('/analyse/progress');
+        const response = await fetch('/progress');
         if (!response.ok) {
             throw new Error('Erreur lors de la récupération de la progression');
         }
@@ -250,98 +241,12 @@ async function updateProgressBar() {
 
 document.addEventListener("DOMContentLoaded", () => {
     const fileListContainer = document.getElementById("file-list");
-    const analyseButton = document.getElementById("analyse-button");
+    const analyseButton = DOM.analyseButton;
 
-    async function loadFileList() {
-        try {
-            const response = await fetch('/files/list');
-            if (!response.ok) throw new Error('Erreur lors du chargement des fichiers');
-            
-            const files = await response.json();
+    loadFileList();
 
-            fileListContainer.innerHTML = "";
-
-            if (files.length > 0) {
-                files.forEach(file => {
-                    const listItem = document.createElement("div");
-                    listItem.textContent = file;
-                    listItem.classList.add('file');
-
-                    // Ajouter un bouton de suppression
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Supprimer';
-                    deleteButton.classList.add('delete-btn');
-                    deleteButton.addEventListener('click', () => deleteFile(file));
-
-                    listItem.appendChild(deleteButton);
-                    fileListContainer.appendChild(listItem);
-                });
-            } else {
-                fileListContainer.textContent = "Aucun fichier disponible.";
-            }
-        } catch (error) {
-            console.error(error);
-            fileListContainer.textContent = "Erreur lors du chargement des fichiers.";
-        }
-    }
-
-    // Supprimer un fichier
-    async function deleteFile(fileName) {
-        try {
-            const response = await fetch('/files/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file: fileName })
-            });
-
-            if (!response.ok) throw new Error('Erreur lors de la suppression du fichier');
-            await loadFileList(); // Recharger la liste après suppression
-        } catch (error) {
-            console.error(error);
-            showNotification('error', 'Erreur lors de la suppression du fichier.');
-        }
-    }
-
-    // Supprimer tous les fichiers
-    async function deleteAllFiles() {
-        try {
-            const response = await fetch('/files/delete_all', {
-                method: 'POST'
-            });
-
-            if (!response.ok) throw new Error('Erreur lors de la suppression des fichiers');
-            await loadFileList(); // Recharger la liste après suppression
-        } catch (error) {
-            console.error(error);
-            showNotification('error', 'Erreur lors de la suppression des fichiers.');
-        }
-    }
-
-    // Gérer l'upload de fichiers
-    async function uploadFiles(files) {
-        const formData = new FormData();
-        for (const file of files) {
-            formData.append('files', file);
-        }
-
-        try {
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Erreur lors de l\'upload');
-
-            await loadFileList(); // Recharger la liste après upload
-        } catch (error) {
-            console.error(error);
-            showNotification('error', 'Erreur lors de l\'upload des fichiers.');
-        }
-    }
-
-    // Gestion du drag and drop
-    const dropArea = document.getElementById('drop-area');
-    const fileInput = document.getElementById('file-input');
+    const dropArea = DOM.dropArea;
+    const fileInput = DOM.fileInput;
 
     dropArea.addEventListener('dragover', event => {
         event.preventDefault();
@@ -356,34 +261,15 @@ document.addEventListener("DOMContentLoaded", () => {
         event.preventDefault();
         dropArea.classList.remove('dragover');
         const files = event.dataTransfer.files;
-        await uploadFiles(files); // Mettre à jour la liste après l'upload
+        await uploadFiles(files);
     });
 
     fileInput.addEventListener('change', async () => {
         const files = fileInput.files;
-        await uploadFiles(files); // Mettre à jour la liste après l'upload
+        await uploadFiles(files);
     });
-
-    // Fonction pour afficher une notification
-    function showNotification(type, message) {
-        const notification = document.getElementById("notification");
-        const notificationText = document.getElementById("notification-text");
-        
-        notification.classList.add(type);
-        notificationText.textContent = message;
-
-        notification.classList.add("show");
-        
-        setTimeout(() => {
-            notification.classList.remove("show");
-        }, 3000); // La notification disparaît après 3 secondes
-    }
-
-    // Initialiser la liste des fichiers à l'ouverture de la page
-    loadFileList();
 });
 
-// Fonction pour uploader les fichiers
 async function uploadFiles(files) {
     const formData = new FormData();
     for (const file of files) {
@@ -396,35 +282,69 @@ async function uploadFiles(files) {
             body: formData
         });
 
-        if (!response.ok) throw new Error('Erreur lors de l\'upload');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Erreur lors de l\'upload');
+        }
+
+        await loadFileList();
     } catch (error) {
         console.error(error);
-        showNotification('error', 'Erreur lors de l\'upload des fichiers.');
+        showNotification('error', error.message);
     }
 }
 
-// Fonction pour afficher la notification
 function showNotification(type, message) {
-    const notification = document.getElementById('notification');
-    const notificationText = document.getElementById('notification-text');
+    const notification = DOM.notification.container;
+    const notificationText = DOM.notification.text;
 
-    // Réinitialiser le texte et les classes de notification
+    notification.classList.remove('show');
+    void notification.offsetWidth; // Reflow pour redémarrer l'animation
+
     notificationText.textContent = message;
     notification.className = 'notification ' + type;
 
-    // Afficher la notification
     notification.classList.add('show');
 
-    // Masquer la notification après 3 secondes
     setTimeout(() => {
         notification.classList.remove('show');
-    }, 2000); // Disparait après 3 secondes
+    }, 2000);
+}
+
+async function deleteFile(fileName) {
+    try {
+        const response = await fetch('/files/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: fileName })
+        });
+
+        if (!response.ok) throw new Error('Erreur lors de la suppression du fichier');
+        await loadFileList();
+    } catch (error) {
+        console.error(error);
+        showNotification('error', 'Erreur lors de la suppression du fichier.');
+    }
+}
+
+async function deleteAllFiles() {
+    try {
+        const response = await fetch('/files/delete_all', {
+            method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Erreur lors de la suppression des fichiers');
+        await loadFileList();
+    } catch (error) {
+        console.error(error);
+        showNotification('error', 'Erreur lors de la suppression des fichiers.');
+    }
 }
 
 function closePopup() {
     const resultSection = document.getElementById('results-section');
     const resultsElement = document.getElementById('results');
-    resultsElement.innerHTML = ""; // Vider le contenu des résultats
-    loadFileList(); // Recharger la liste des fichiers
+    resultsElement.innerHTML = "";
+    loadFileList();
     resultSection.style.display = 'none';
 }
