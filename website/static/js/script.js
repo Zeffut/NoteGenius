@@ -47,13 +47,22 @@ document.getElementById("analyse-button").addEventListener("click", async () => 
             return;
         }
 
-        const analyseResponse = await fetch('/analyse', {
+        const serverResponse = await fetch('/analyse', {
             method: 'POST',
         });
 
-        if (!analyseResponse.ok) {
-            const result = await analyseResponse.json();
-            throw new Error(result.error || 'Erreur lors de l\'analyse');
+        if (!serverResponse.ok) {
+            const result = await serverResponse.json();
+            if (result.error === 'Aucun serveur disponible') {
+                showNotification('error', 'Aucun serveur disponible pour lancer l\'analyse.');
+            } else {
+                throw new Error(result.error || 'Erreur lors de l\'analyse');
+            }
+            analyseButton.disabled = false;
+            analyseButton.textContent = "Analyser";
+            resultSection.style.display = 'none';
+            isAnalysing = false;
+            return;
         }
 
         const checkStatusInterval = setInterval(async () => {

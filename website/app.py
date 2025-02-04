@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = ''
+app.config['SECRET_KEY'] = 'fCJUOf0*&0gS^mvodcaRyO$Jh3$'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -23,6 +23,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(script_dir, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+debug = True  # Variable de débogage
+
+def debug_print(message):
+    if debug:
+        print(f"\033[94m[Debug]\033[0m {message}")
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -162,14 +168,18 @@ def get_file_list():
     return jsonify(files)
 
 def get_available_server():
+    debug_print("Fetching available server")
     with open('servers.json', 'r') as f:
         servers = json.load(f)
     for server in servers:
         ip = server.get('ip')
         port = server.get('port')
         status = get_server_status(ip, port)
+        debug_print(f"Server {server['name']} status: {status}")
         if status == 'available':
+            debug_print(f"Server {server['name']} is available")
             return server
+    debug_print("No available server found")
     return None
 
 def get_server_progress(ip, port):
@@ -202,21 +212,31 @@ def send_file_to_server(file_path, ip, port):
 
 @app.route('/analyse', methods=['POST'])
 def analyse_files():
+    debug_print("Analysis request received")
     if 'isAnalysing' in session and session['isAnalysing']:
+        debug_print("Analysis already in progress")
         return jsonify({'error': 'Une analyse est déjà en cours'}), 400
 
     user_folder = get_user_upload_folder()
     if not user_folder:
+        debug_print("User folder not found")
         return jsonify({'error': 'User folder not found'}), 400
 
     pdf_files = [f for f in os.listdir(user_folder) if f.endswith('.pdf')]
     if not pdf_files:
+        debug_print("No PDF files found")
         return jsonify({'error': 'No PDF files found'}), 400
     
     session['isAnalysing'] = True
     session.modified = True
     
     server = get_available_server()
+    if not server:
+        debug_print("No available server")
+        session['isAnalysing'] = False
+        session.modified = True
+        return jsonify({'error': 'Aucun serveur disponible'}), 400
+
     ip = server.get('ip')
     port = server.get('port')
     session['server_ip'] = ip
@@ -224,9 +244,11 @@ def analyse_files():
     session.modified = True
 
     for filename in pdf_files:
+        debug_print(f"""Sending file "{filename}" to server {server['name']}""")
         send_file_to_server(os.path.join(user_folder, filename), ip, port)
 
     start_analysis_on_server(ip, port)
+    debug_print("Analysis started on server")
 
     return jsonify({'message': 'Analyse lancée avec succès'})
 
@@ -286,6 +308,7 @@ def delete_all_files_in_folder(folder):
 
 @app.route('/results', methods=['GET'])
 def get_results():
+    debug_print("Fetching analysis results")
     if 'server_ip' in session and 'server_port' in session:
         ip = session['server_ip']
         port = session['server_port']
@@ -297,10 +320,13 @@ def get_results():
             session.modified = True
             user_folder = get_user_upload_folder()
             delete_all_files_in_folder(user_folder)  # Supprimer tous les fichiers après avoir envoyé le résultat
+            debug_print("Results fetched successfully")
             return jsonify({'revision_cards': results}), 200
         else:
+            debug_print("Failed to get results from server")
             return jsonify({'error': 'Failed to get results from server'}), 500
     else:
+        debug_print("No server information available")
         return jsonify({'error': 'No server information available'}), 400
 
 # Planificateur pour les tâches de nettoyage
@@ -328,4 +354,5 @@ def clean_inactive_user_files():
 scheduler.add_job(clean_inactive_user_files, 'interval', hours=24)
 with app.app_context():
     db.create_all()
-app.run(host="0.0.0.0", port=8080)
+debug_print("Starting application")
+app.run(host="0.0.0.0", port=8080, debug=False)

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
 </head>
 <body>
     <div id="notification" class="notification success">
@@ -28,7 +29,11 @@
         </div>
     </section>
     <section class="analyse">
-        <button class="analyse" id="analyse-button">Analyser</button>
+        {% if current_user.is_authenticated %}
+            <button class="analyse" id="analyse-button">Analyser</button>
+        {% else %}
+            <button class="analyse" id="analyse-button" style="display: none;" onclick="showNotification('error', 'Aucun fichier à analyser.');">Analyser</button>
+        {% endif %}
     </section>
     <section class="results-section" id="results-section">
         <div id="popup" class="popup">
@@ -45,6 +50,5 @@
             </div>
         </div>
     </section>
-    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
 </body>
 </html>
